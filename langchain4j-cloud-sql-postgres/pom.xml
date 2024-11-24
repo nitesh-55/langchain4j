@@ -14,9 +14,9 @@
         <postgresql.version>42.7.0</postgresql.version>
     </properties>
 
-    <artifactId>langchain4j-cloud-sql-postgres</artifactId>
-    <name>LangChain4j :: Integration :: PGVector</name>
-    <description>It uses the pgvector-java library</description>
+    <artifactId>langchain4j-cloud-sql-pg</artifactId>
+    <name>LangChain4j :: Integration :: Cloud SQL PostgreSQL</name>
+    <description>Cloud SQL PG for Langchain4j</description>
 
     <dependencies>
 

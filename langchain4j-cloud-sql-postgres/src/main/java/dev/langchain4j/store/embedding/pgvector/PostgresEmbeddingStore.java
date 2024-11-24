@@ -10,17 +10,17 @@ import dev.langchain4j.data.embedding.Embedding;
 
 import static dev.langchain4j.utils.HelperUtils.*;
 
-public class PgVectorEmbeddingStore implements EmbeddingStore<TextSegment> {
+public class PostgresEmbeddingStore implements EmbeddingStore<TextSegment> {
 
     /**
-     * Constructor for PgVectorEmbeddingStore Class
+     * Constructor for PostgresEmbeddingStore Class
      * @param host                  the database host
      * @param port                  the database port
      * @param user                  the database user
      * @param password              the database password
      * @param database              the database name
      */
-    protected PgVectorEmbeddingStore(
+    protected PostgresEmbeddingStore(
         String host,
         Integer port,
         String user,
