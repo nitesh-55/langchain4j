@@ -49,7 +49,7 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             </exclusion>
-                <exclusion>
+            <exclusion>
             <groupId>com.google.http-client</groupId>
             <artifactId>google-http-client</artifactId>
             </exclusion>
@@ -137,11 +137,11 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             </exclusion>
-             <exclusion>
+            <exclusion>
             <groupId>com.google.errorprone</groupId>
             <artifactId>error_prone_annotations</artifactId>
             </exclusion>
-             <exclusion>
+            <exclusion>
             <groupId>com.google.http-client</groupId>
             <artifactId>google-http-client</artifactId>
             </exclusion>
