@@ -3,6 +3,8 @@ package dev.langchain4j;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import javax.sql.DataSource;
+import java.util.Properties;
+
 
 public class DBConnectionEngine extends ConnectionPoolFactory {
 
@@ -14,24 +16,18 @@ public class DBConnectionEngine extends ConnectionPoolFactory {
   private static final String PROJECT_ID = System.getenv("PROJECT_ID");
   private static final String REGION = System.getenv("us-central-1");
   private static final String CLUSTER_ID = System.getenv("CLUSTER_ID");
+  private static final String CONNECTION_NAME = "my-project:my-region:my-instance";
 
   public static DataSource createConnectionPool() {
 
     HikariConfig config = new HikariConfig();
-    String jdbcUrl =
-        "jdbc:postgresql:///DB_NAME?"
-            + "cloudSqlInstance=INSTANCE_HOST"
-            + "port=DB_PORT"
-            + "&ipTypes=PUBLIC"
-            + "&socketFactory=com.google.cloud.sql.postgres.SocketFactory"
-            + "&user=DB_USER"
-            + "&password=DB_PASS";
 
-    config.setJdbcUrl(String.format(jdbcUrl));
-    config.addDataSourceProperty("enableIamAuth", "true");
-    config.addDataSourceProperty("project_id", PROJECT_ID);
-    config.addDataSourceProperty("region", PROJECT_ID);
-    config.addDataSourceProperty("cluster", CLUSTER_ID);
+    String jdbcURL = String.format("jdbc:postgresql:///%s", DB_NAME);
+    Properties connProps = new Properties();
+    connProps.setProperty("user", DB_USER);
+    connProps.setProperty("password", DB_PASSWORD);
+    connProps.setProperty("socketFactory", "com.google.cloud.sql.postgres.SocketFactory");
+    connProps.setProperty("cloudSqlInstance", CONNECTION_NAME);
 
     configureConnectionPool(config);
     
