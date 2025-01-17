@@ -16,7 +16,7 @@ public class DBConnectionEngine extends ConnectionPoolFactory {
   private static final String PROJECT_ID = System.getenv("PROJECT_ID");
   private static final String REGION = System.getenv("us-central-1");
   private static final String CLUSTER_ID = System.getenv("CLUSTER_ID");
-  private static final String CONNECTION_NAME = "my-project:my-region:my-instance";
+  private static final String CONNECTION_NAME = System.getenv("POSTGRES_CONNECTION_NAME");
 
   public static DataSource createConnectionPool() {
 
