@@ -225,7 +225,11 @@
             <version>4.11</version>
             <scope>test</scope>
         </dependency>
-
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-context</artifactId>
+            <version>1.60.1</version>
+        </dependency>
     </dependencies>
 
 </project>
