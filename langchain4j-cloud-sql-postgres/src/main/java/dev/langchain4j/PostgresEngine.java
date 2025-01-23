@@ -15,7 +15,6 @@ public class PostgresEngine {
   public PostgresEngine(
       String projectId,
       String region,
-      String cluster,
       String instance,
       String database,
       String user,
@@ -35,13 +34,10 @@ public class PostgresEngine {
       }
     }
     String instanceName =
-        new StringBuilder("projects/")
-            .append(ensureNotBlank(projectId, "projectId"))
-            .append("/locations/")
+        new StringBuilder(ensureNotBlank(projectId, "projectId"))
+            .append(":")
             .append(ensureNotBlank(region, "region"))
-            .append("/clusters/")
-            .append(ensureNotBlank(cluster, "cluster"))
-            .append("/instances/")
+            .append(":")
             .append(ensureNotBlank(instance, "instance"))
             .toString();
     dataSource = createDataSource(database, user, password, instanceName, ipType, enableIAMAuth);
@@ -86,7 +82,6 @@ public class PostgresEngine {
 
     private String projectId;
     private String region;
-    private String cluster;
     private String instance;
     private String database;
     private String user;
@@ -103,11 +98,6 @@ public class PostgresEngine {
 
     public Builder region(String region) {
       this.region = region;
-      return this;
-    }
-
-    public Builder cluster(String cluster) {
-      this.cluster = cluster;
       return this;
     }
 
@@ -143,7 +133,7 @@ public class PostgresEngine {
 
     PostgresEngine build() {
       return new PostgresEngine(
-          projectId, region, cluster, instance, database, user, password, ipType, iamAccountEmail);
+          projectId, region, instance, database, user, password, ipType, iamAccountEmail);
     }
   }
 }
