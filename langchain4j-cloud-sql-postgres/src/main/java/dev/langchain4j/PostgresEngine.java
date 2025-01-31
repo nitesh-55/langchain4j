@@ -1,11 +1,16 @@
 package dev.langchain4j;
 
-import static dev.langchain4j.internal.ValidationUtils.ensureNotBlank;
+import static dev.langchain4j.internal.Utils.isNullOrBlank;
+import static dev.langchain4j.utils.HelperUtils.*;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.List;
+import java.util.stream.Collectors;
 import javax.sql.DataSource;
 
 public class PostgresEngine {
@@ -34,11 +39,11 @@ public class PostgresEngine {
       }
     }
     String instanceName =
-        new StringBuilder(ensureNotBlank(projectId, "projectId"))
+        new StringBuilder(isNotBlank(projectId, "projectId"))
             .append(":")
-            .append(ensureNotBlank(region, "region"))
+            .append(isNotBlank(region, "region"))
             .append(":")
-            .append(ensureNotBlank(instance, "instance"))
+            .append(isNotBlank(instance, "instance"))
             .toString();
     dataSource = createDataSource(database, user, password, instanceName, ipType, enableIAMAuth);
   }
@@ -51,16 +56,16 @@ public class PostgresEngine {
       String ipType,
       Boolean enableIAMAuth) {
     HikariConfig config = new HikariConfig();
-    config.setUsername(ensureNotBlank(user, "user"));
+    config.setUsername(isNotBlank(user, "user"));
     if (enableIAMAuth) {
       config.addDataSourceProperty("enableIAMAuth", "true");
     } else {
-      config.setPassword(ensureNotBlank(password, "password"));
+      config.setPassword(isNotBlank(password, "password"));
     }
-    config.setJdbcUrl(String.format("jdbc:postgresql:///%s", ensureNotBlank(database, "database")));
+    config.setJdbcUrl(String.format("jdbc:postgresql:///%s", isNotBlank(database, "database")));
     config.addDataSourceProperty("socketFactory", "com.google.cloud.postgres.SocketFactory");
-    config.addDataSourceProperty("cloudSqlInstance", ensureNotBlank(instanceName, "instanceName"));
-    config.addDataSourceProperty("ipType", ensureNotBlank(ipType, "ipType"));
+    config.addDataSourceProperty("cloudSqlInstance", isNotBlank(instanceName, "instanceName"));
+    config.addDataSourceProperty("ipType", isNotBlank(ipType, "ipType"));
 
     return new HikariDataSource(config);
   }
@@ -134,6 +139,77 @@ public class PostgresEngine {
     PostgresEngine build() {
       return new PostgresEngine(
           projectId, region, instance, database, user, password, ipType, iamAccountEmail);
+    }
+  }
+
+  public void initVectorStoreTable(
+      String tableName,
+      Integer vectoreSize,
+      String contentColumn,
+      String embeddingColumn,
+      String embeddingIdColumn,
+      List<MetadataColumn> metadataColumns,
+      Boolean overwriteExisting,
+      Boolean storeMetadata) {
+    isNotBlank(tableName, "tableName");
+    try (Connection connection = getConnection(); ) {
+      Statement statement = connection.createStatement();
+      statement.executeUpdate("CREATE EXTENSION IF NOT EXISTS vector");
+
+      if (overwriteExisting == null || !overwriteExisting) {
+        ResultSet rs =
+            connection.getMetaData().getTables(null, null, tableName.toLowerCase(), null);
+      } else {
+        statement.executeUpdate(String.format("DROP TABLE %s", tableName));
+      }
+      if (isNullOrBlank(contentColumn)) {
+        contentColumn = "content";
+      }
+      if (isNullOrBlank(embeddingColumn)) {
+        embeddingColumn = "embedding";
+      }
+      if (isNullOrBlank(embeddingIdColumn)) {
+        embeddingIdColumn = "langchain_id";
+      }
+      String metadataClause = "";
+      if (metadataColumns != null && !metadataColumns.isEmpty()) {
+        if (!storeMetadata) {
+          throw new IllegalStateException(
+              "storeMetadata option is disabled but metadata was provided");
+        }
+        metadataClause =
+            String.format(
+                ", %s",
+                metadataColumns.stream()
+                    .map(MetadataColumn::generateColumnString)
+                    .collect(Collectors.joining(",")));
+      } else if (storeMetadata) {
+        throw new IllegalStateException(
+            "storeMetadata option is enabled but no metadata was provided");
+      }
+      String query =
+          String.format(
+              "CREATE TABLE %s (%s UUID PRIMARY KEY, %s TEXT, %s vector(%d) NOT" + " NULL%s)",
+              tableName,
+              embeddingIdColumn,
+              contentColumn,
+              embeddingColumn,
+              isGreaterThanZero(vectoreSize, "vectoreSize"),
+              metadataClause);
+      statement.executeUpdate(query);
+
+      final String indexName = tableName + "_ivfflat_index";
+      query =
+          String.format(
+              "CREATE INDEX IF NOT EXISTS %s ON %s "
+                  + "USING ivfflat (embedding vector_cosine_ops) "
+                  + "WITH (lists = %s)",
+              indexName, tableName);
+      statement.executeUpdate(query);
+
+    } catch (SQLException ex) {
+      throw new RuntimeException(
+          String.format("Failed to initialize vector store table: %s", tableName), ex);
     }
   }
 }
