@@ -1,15 +1,12 @@
-package dev.langchain4j;
+package dev.langchain4j.engine;
 
-import static dev.langchain4j.internal.Utils.isNullOrBlank;
 import static dev.langchain4j.utils.HelperUtils.*;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import java.sql.Connection;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.List;
 import java.util.stream.Collectors;
 import javax.sql.DataSource;
 
@@ -142,74 +139,66 @@ public class PostgresEngine {
     }
   }
 
-  public void initVectorStoreTable(
-      String tableName,
-      Integer vectoreSize,
-      String contentColumn,
-      String embeddingColumn,
-      String embeddingIdColumn,
-      List<MetadataColumn> metadataColumns,
-      Boolean overwriteExisting,
-      Boolean storeMetadata) {
-    isNotBlank(tableName, "tableName");
+  public void initVectorStoreTable(PostgresEmbeddingStoreConfig postgresEmbeddingStoreConfig) {
+
     try (Connection connection = getConnection(); ) {
       Statement statement = connection.createStatement();
       statement.executeUpdate("CREATE EXTENSION IF NOT EXISTS vector");
 
-      if (overwriteExisting == null || !overwriteExisting) {
-        ResultSet rs =
-            connection.getMetaData().getTables(null, null, tableName.toLowerCase(), null);
-      } else {
-        statement.executeUpdate(String.format("DROP TABLE %s", tableName));
+      if (postgresEmbeddingStoreConfig.getOverwriteExisting()) {
+        statement.executeUpdate(
+            String.format(
+                "DROP TABLE \"%s\".\"%s\"",
+                postgresEmbeddingStoreConfig.getSchemaName(),
+                postgresEmbeddingStoreConfig.getTableName()));
       }
-      if (isNullOrBlank(contentColumn)) {
-        contentColumn = "content";
-      }
-      if (isNullOrBlank(embeddingColumn)) {
-        embeddingColumn = "embedding";
-      }
-      if (isNullOrBlank(embeddingIdColumn)) {
-        embeddingIdColumn = "langchain_id";
-      }
+
       String metadataClause = "";
-      if (metadataColumns != null && !metadataColumns.isEmpty()) {
-        if (!storeMetadata) {
+      if (postgresEmbeddingStoreConfig.getMetadataColumns() != null
+          && !postgresEmbeddingStoreConfig.getMetadataColumns().isEmpty()) {
+        if (!postgresEmbeddingStoreConfig.getStoreMetadata()) {
           throw new IllegalStateException(
               "storeMetadata option is disabled but metadata was provided");
         }
         metadataClause =
             String.format(
                 ", %s",
-                metadataColumns.stream()
+                postgresEmbeddingStoreConfig.getMetadataColumns().stream()
                     .map(MetadataColumn::generateColumnString)
                     .collect(Collectors.joining(",")));
-      } else if (storeMetadata) {
+      } else if (postgresEmbeddingStoreConfig.getStoreMetadata()) {
         throw new IllegalStateException(
             "storeMetadata option is enabled but no metadata was provided");
       }
+
+      if (postgresEmbeddingStoreConfig.getStoreMetadata()) {
+        metadataClause +=
+            String.format(
+                ", %s",
+                new MetadataColumn(
+                        postgresEmbeddingStoreConfig.getMetadataJsonColumn(), "JSON", true)
+                    .generateColumnString());
+      }
+
       String query =
           String.format(
-              "CREATE TABLE %s (%s UUID PRIMARY KEY, %s TEXT, %s vector(%d) NOT" + " NULL%s)",
-              tableName,
-              embeddingIdColumn,
-              contentColumn,
-              embeddingColumn,
-              isGreaterThanZero(vectoreSize, "vectoreSize"),
+              "CREATE \"%s\".\"%s\" (\"%s\" UUID PRIMARY KEY, \"%s\" TEXT NOT NULL, \"%s\""
+                  + " vector(%d) NOT NULL%s)",
+              postgresEmbeddingStoreConfig.getSchemaName(),
+              postgresEmbeddingStoreConfig.getTableName(),
+              postgresEmbeddingStoreConfig.getIdColumn(),
+              postgresEmbeddingStoreConfig.getContentColumn(),
+              postgresEmbeddingStoreConfig.getEmbeddingColumn(),
+              isGreaterThanZero(postgresEmbeddingStoreConfig.getVectorSize(), "vectorSize"),
               metadataClause);
-      statement.executeUpdate(query);
-
-      final String indexName = tableName + "_ivfflat_index";
-      query =
-          String.format(
-              "CREATE INDEX IF NOT EXISTS %s ON %s "
-                  + "USING ivfflat (embedding vector_cosine_ops) "
-                  + "WITH (lists = %s)",
-              indexName, tableName);
       statement.executeUpdate(query);
 
     } catch (SQLException ex) {
       throw new RuntimeException(
-          String.format("Failed to initialize vector store table: %s", tableName), ex);
+          String.format(
+              "Failed to initialize vector store table: %s",
+              postgresEmbeddingStoreConfig.getTableName()),
+          ex);
     }
   }
 }

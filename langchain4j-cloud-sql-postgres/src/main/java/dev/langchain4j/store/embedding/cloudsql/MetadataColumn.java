@@ -1,4 +1,4 @@
-package dev.langchain4j;
+package dev.langchain4j.engine;
 
 public class MetadataColumn {
 
