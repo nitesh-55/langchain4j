@@ -1,10 +1,26 @@
 package dev.langchain4j.engine;
 
-import static dev.langchain4j.utils.HelperUtils.*;
+import static dev.langchain4j.utils.HelperUtils.isGreaterThanZero;
+import static dev.langchain4j.utils.HelperUtils.isNotBlank;
 
 import java.util.List;
 
-public class PostgresEmbeddingStoreConfig {
+/**
+ * create a non-default VectorStore table
+ *
+ * @param tableName (Required) the table name to create - does not append a suffix or prefix!
+ * @param vectorSize (Required) create a vector column with custom vector size
+ * @param schemaName (Default: "public") The schema name
+ * @param contentColumn (Default: "content") create the content column with custom name
+ * @param embeddingColumn (Default: "embedding") create the embedding column with custom name
+ * @param idColumn (Optional, Default: "langchain_id") Column to store ids.
+ * @param metadataColumns list of SQLAlchemy Columns to create for custom metadata
+ * @param metadataJsonColumn (Default: "langchain_metadata") the column to store extra metadata in
+ * @param overwriteExisting (Default: False) boolean for dropping table before insertion
+ * @param storeMetadata (Default: False) boolean to store extra metadata in metadata column if not
+ *     described in “metadata” field list
+ */
+public class EmbeddingStoreConfig {
   private final String tableName;
   private final Integer vectorSize;
   private final String contentColumn;
@@ -16,7 +32,7 @@ public class PostgresEmbeddingStoreConfig {
   private final String schemaName;
   private final String metadataJsonColumn;
 
-  private PostgresEmbeddingStoreConfig(
+  private EmbeddingStoreConfig(
       String tableName,
       Integer vectorSize,
       String contentColumn,
@@ -186,8 +202,8 @@ public class PostgresEmbeddingStoreConfig {
       return this;
     }
 
-    public PostgresEmbeddingStoreConfig build() {
-      return new PostgresEmbeddingStoreConfig(
+    public EmbeddingStoreConfig build() {
+      return new EmbeddingStoreConfig(
           tableName,
           vectorSize,
           contentColumn,

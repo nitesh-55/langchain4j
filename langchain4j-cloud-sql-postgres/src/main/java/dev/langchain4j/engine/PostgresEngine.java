@@ -1,6 +1,7 @@
 package dev.langchain4j.engine;
 
-import static dev.langchain4j.utils.HelperUtils.*;
+import static dev.langchain4j.utils.HelperUtils.isGreaterThanZero;
+import static dev.langchain4j.utils.HelperUtils.isNotBlank;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -139,7 +140,7 @@ public class PostgresEngine {
     }
   }
 
-  public void initVectorStoreTable(PostgresEmbeddingStoreConfig postgresEmbeddingStoreConfig) {
+  public void initVectorStoreTable(EmbeddingStoreConfig postgresEmbeddingStoreConfig) {
 
     try (Connection connection = getConnection(); ) {
       Statement statement = connection.createStatement();

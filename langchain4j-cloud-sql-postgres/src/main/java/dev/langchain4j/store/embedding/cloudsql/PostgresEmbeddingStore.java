@@ -1,7 +1,6 @@
 package dev.langchain4j.store.embedding.cloudsql;
 
 import static dev.langchain4j.internal.ValidationUtils.*;
-import static dev.langchain4j.utils.HelperUtils.*;
 
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
