@@ -1,7 +1,7 @@
 package dev.langchain4j.engine;
 
-import static dev.langchain4j.utils.HelperUtils.isGreaterThanZero;
-import static dev.langchain4j.utils.HelperUtils.isNotBlank;
+import static dev.langchain4j.internal.ValidationUtils.ensureNotBlank;
+import static dev.langchain4j.internal.ValidationUtils.ensureGreaterThanZero;
 
 import java.util.List;
 
@@ -43,8 +43,8 @@ public class EmbeddingStoreConfig {
       Boolean storeMetadata,
       String schemaName,
       String metadataJsonColumn) {
-    isNotBlank(tableName, "tableName");
-    isGreaterThanZero(vectorSize, "vectorSize");
+    ensureNotBlank(tableName, "tableName");
+    ensureGreaterThanZero(vectorSize, "vectorSize");
     this.tableName = tableName;
     this.vectorSize = vectorSize;
     this.contentColumn = contentColumn;

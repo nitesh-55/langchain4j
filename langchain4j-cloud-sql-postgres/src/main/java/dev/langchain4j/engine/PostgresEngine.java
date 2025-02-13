@@ -1,20 +1,43 @@
 package dev.langchain4j.engine;
 
-import static dev.langchain4j.utils.HelperUtils.isGreaterThanZero;
-import static dev.langchain4j.utils.HelperUtils.isNotBlank;
+import static dev.langchain4j.internal.Utils.isNotNullOrBlank;
+import static dev.langchain4j.internal.Utils.isNullOrBlank;
+import static dev.langchain4j.internal.Utils.readBytes;
+import static dev.langchain4j.internal.ValidationUtils.ensureGreaterThanZero;
+import static dev.langchain4j.internal.ValidationUtils.ensureNotBlank;
 
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.stream.Collectors;
 import javax.sql.DataSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class PostgresEngine {
 
   private DataSource dataSource;
+  private static final Logger log = LoggerFactory.getLogger(PostgresEngine.class.getName());
 
+  /**
+   * Constructor for PostgresEngine
+   *
+   * @param projectId (Required) project id
+   * @param region (Required) cluster region
+   * @param cluster (Required) cluster
+   * @param instance (Required) instance
+   * @param database (Required) database
+   * @param user (Optional) database user
+   * @param password (Optional) database password
+   * @param ipType (Required) type of IP to be used (PUBLIC, PSC)
+   * @param iamAccountEmail (Optional) IAM account email
+   */
   public PostgresEngine(
       String projectId,
       String region,
@@ -25,23 +48,30 @@ public class PostgresEngine {
       String ipType,
       String iamAccountEmail) {
     Boolean enableIAMAuth = false;
-    if (user != null && !user.isBlank() && password != null && !password.isBlank()) {
-      enableIAMAuth = false;
-    } else {
+
+    if (isNullOrBlank(user) && isNullOrBlank(password)) {
       enableIAMAuth = true;
-      if (iamAccountEmail != null && !iamAccountEmail.isBlank()) {
+      if (isNotNullOrBlank(iamAccountEmail)) {
+        log.debug("Found iamAccountEmail");
         user = iamAccountEmail;
       } else {
-        // to be implemented
-        user = getIAMPrincipalEmail();
+        log.debug("Retrieving IAM principal email");
+        user = getIAMPrincipalEmail().replace(".gserviceaccount.com", "");
       }
+    } else if (isNotNullOrBlank(user) && isNotNullOrBlank(password)) {
+      enableIAMAuth = false;
+      log.debug("Found user and password, IAM Auth disabled");
+    } else {
+      throw new IllegalStateException(
+          "Either one of user or password is blank, expected both user and password to be valid"
+              + " credentials or empty");
     }
     String instanceName =
-        new StringBuilder(isNotBlank(projectId, "projectId"))
+        new StringBuilder(ensureNotBlank(projectId, "projectId"))
             .append(":")
-            .append(isNotBlank(region, "region"))
+            .append(ensureNotBlank(region, "region"))
             .append(":")
-            .append(isNotBlank(instance, "instance"))
+            .append(ensureNotBlank(instance, "instance"))
             .toString();
     dataSource = createDataSource(database, user, password, instanceName, ipType, enableIAMAuth);
   }
@@ -54,23 +84,36 @@ public class PostgresEngine {
       String ipType,
       Boolean enableIAMAuth) {
     HikariConfig config = new HikariConfig();
-    config.setUsername(isNotBlank(user, "user"));
+    config.setUsername(ensureNotBlank(user, "user"));
     if (enableIAMAuth) {
       config.addDataSourceProperty("enableIAMAuth", "true");
     } else {
-      config.setPassword(isNotBlank(password, "password"));
+      config.setPassword(ensureNotBlank(password, "password"));
     }
-    config.setJdbcUrl(String.format("jdbc:postgresql:///%s", isNotBlank(database, "database")));
+    config.setJdbcUrl(String.format("jdbc:postgresql:///%s", ensureNotBlank(database, "database")));
     config.addDataSourceProperty("socketFactory", "com.google.cloud.postgres.SocketFactory");
-    config.addDataSourceProperty("cloudSqlInstance", isNotBlank(instanceName, "instanceName"));
-    config.addDataSourceProperty("ipType", isNotBlank(ipType, "ipType"));
+    config.addDataSourceProperty("cloudSqlInstance", ensureNotBlank(instanceName, "instanceName"));
+    config.addDataSourceProperty("ipType", ensureNotBlank(ipType, "ipType"));
 
     return new HikariDataSource(config);
   }
 
   private String getIAMPrincipalEmail() {
-    // to be implemented
-    return "";
+    try {
+      GoogleCredentials credentials = GoogleCredentials.getApplicationDefault();
+      String accessToken = credentials.refreshAccessToken().getTokenValue();
+
+      String oauth2APIURL = "https://oauth2.googleapis.com/tokeninfo?access_token=" + accessToken;
+      byte[] responseBytes = readBytes(oauth2APIURL);
+      JsonObject responseJson = JsonParser.parseString(new String(responseBytes)).getAsJsonObject();
+      if (responseJson.has("email")) {
+        return responseJson.get("email").getAsString();
+      } else {
+        throw new RuntimeException("unable to load IAM principal email");
+      }
+    } catch (IOException e) {
+      throw new RuntimeException("unable to load IAM principal email", e);
+    }
   }
 
   public Connection getConnection() throws SQLException {
@@ -94,41 +137,65 @@ public class PostgresEngine {
 
     public Builder() {}
 
+    /**
+     * @param projectId (Required) project id
+     */
     public Builder projectId(String projectId) {
       this.projectId = projectId;
       return this;
     }
 
+    /**
+     * @param region (Required) cluster region
+     */
     public Builder region(String region) {
       this.region = region;
       return this;
     }
 
+    /**
+     * @param instance (Required) instance
+     */
     public Builder instance(String instance) {
       this.instance = instance;
       return this;
     }
 
+    /**
+     * @param database (Required) database
+     */
     public Builder database(String database) {
       this.database = database;
       return this;
     }
 
+    /**
+     * @param database (Required) database user
+     */
     public Builder user(String user) {
       this.user = user;
       return this;
     }
 
+    /**
+     * @param database (Required) database password
+     */
     public Builder password(String password) {
       this.password = password;
       return this;
     }
 
+    /**
+     * @param ipType (Required) type of IP to be used (PUBLIC, PSC)
+     */
     public Builder ipType(String ipType) {
       this.ipType = ipType;
       return this;
     }
 
+    /**
+     * @param iamAccountEmail (Optional) IAM account email
+     */
     public Builder iamAccountEmail(String iamAccountEmail) {
       this.iamAccountEmail = iamAccountEmail;
       return this;
@@ -140,44 +207,45 @@ public class PostgresEngine {
     }
   }
 
-  public void initVectorStoreTable(EmbeddingStoreConfig postgresEmbeddingStoreConfig) {
+  /**
+   * @param embeddingStoreConfig contains the parameters necesary to intialize the Vector table
+   */
+  public void initVectorStoreTable(EmbeddingStoreConfig embeddingStoreConfig) {
 
     try (Connection connection = getConnection(); ) {
       Statement statement = connection.createStatement();
       statement.executeUpdate("CREATE EXTENSION IF NOT EXISTS vector");
 
-      if (postgresEmbeddingStoreConfig.getOverwriteExisting()) {
+      if (embeddingStoreConfig.getOverwriteExisting()) {
         statement.executeUpdate(
             String.format(
                 "DROP TABLE \"%s\".\"%s\"",
-                postgresEmbeddingStoreConfig.getSchemaName(),
-                postgresEmbeddingStoreConfig.getTableName()));
+                embeddingStoreConfig.getSchemaName(), embeddingStoreConfig.getTableName()));
       }
 
       String metadataClause = "";
-      if (postgresEmbeddingStoreConfig.getMetadataColumns() != null
-          && !postgresEmbeddingStoreConfig.getMetadataColumns().isEmpty()) {
-        if (!postgresEmbeddingStoreConfig.getStoreMetadata()) {
+      if (embeddingStoreConfig.getMetadataColumns() != null
+          && !embeddingStoreConfig.getMetadataColumns().isEmpty()) {
+        if (!embeddingStoreConfig.getStoreMetadata()) {
           throw new IllegalStateException(
               "storeMetadata option is disabled but metadata was provided");
         }
         metadataClause =
             String.format(
                 ", %s",
-                postgresEmbeddingStoreConfig.getMetadataColumns().stream()
+                embeddingStoreConfig.getMetadataColumns().stream()
                     .map(MetadataColumn::generateColumnString)
                     .collect(Collectors.joining(",")));
-      } else if (postgresEmbeddingStoreConfig.getStoreMetadata()) {
+      } else if (embeddingStoreConfig.getStoreMetadata()) {
         throw new IllegalStateException(
             "storeMetadata option is enabled but no metadata was provided");
       }
 
-      if (postgresEmbeddingStoreConfig.getStoreMetadata()) {
+      if (embeddingStoreConfig.getStoreMetadata()) {
         metadataClause +=
             String.format(
                 ", %s",
-                new MetadataColumn(
-                        postgresEmbeddingStoreConfig.getMetadataJsonColumn(), "JSON", true)
+                new MetadataColumn(embeddingStoreConfig.getMetadataJsonColumn(), "JSON", true)
                     .generateColumnString());
       }
 
@@ -185,21 +253,20 @@ public class PostgresEngine {
           String.format(
               "CREATE \"%s\".\"%s\" (\"%s\" UUID PRIMARY KEY, \"%s\" TEXT NOT NULL, \"%s\""
                   + " vector(%d) NOT NULL%s)",
-              postgresEmbeddingStoreConfig.getSchemaName(),
-              postgresEmbeddingStoreConfig.getTableName(),
-              postgresEmbeddingStoreConfig.getIdColumn(),
-              postgresEmbeddingStoreConfig.getContentColumn(),
-              postgresEmbeddingStoreConfig.getEmbeddingColumn(),
-              isGreaterThanZero(postgresEmbeddingStoreConfig.getVectorSize(), "vectorSize"),
+              embeddingStoreConfig.getSchemaName(),
+              embeddingStoreConfig.getTableName(),
+              embeddingStoreConfig.getIdColumn(),
+              embeddingStoreConfig.getContentColumn(),
+              embeddingStoreConfig.getEmbeddingColumn(),
+              ensureGreaterThanZero(embeddingStoreConfig.getVectorSize(), "vectorSize"),
               metadataClause);
       statement.executeUpdate(query);
 
     } catch (SQLException ex) {
       throw new RuntimeException(
           String.format(
-              "Failed to initialize vector store table: %s",
-              postgresEmbeddingStoreConfig.getTableName()),
-          ex);
+              "Failed to initialize vector store table: \"%s\".\"%s\"",
+              embeddingStoreConfig.getSchemaName(), embeddingStoreConfig.getTableName(), ex));
     }
   }
 }
