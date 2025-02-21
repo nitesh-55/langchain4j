@@ -1,18 +1,26 @@
 package dev.langchain4j.store.embedding.alloydb;
 
+import java.sql.Array;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
-import java.util.logging.Logger;
+import java.util.UUID;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
+import dev.langchain4j.engine.AlloyDBEngine;
 import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
 import dev.langchain4j.store.embedding.EmbeddingSearchResult;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 
 public class AlloyDBEmbeddingStore implements EmbeddingStore<TextSegment> {
 
-    private static final Logger log = Logger.getLogger(AlloyDBEmbeddingStore.class.getName());
+    private static final Logger log = LoggerFactory.getLogger(AlloyDBEmbeddingStore.class.getName());
     private final AlloyDBEngine engine;
     private final String tableName;
     private String schemaName;
@@ -69,23 +77,43 @@ public class AlloyDBEmbeddingStore implements EmbeddingStore<TextSegment> {
     }
 
     @Override
-    public String add(Embedding embedding, TextSegment embedded) {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
     public List<String> addAll(List<Embedding> embeddings) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
     @Override
+    public String add(Embedding embedding, TextSegment embedded) {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    public List<String> addAll(List<Embedding> embeddings, List<TextSegment> embedded) {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
     public EmbeddingSearchResult<TextSegment> search(EmbeddingSearchRequest request) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
     @Override
     public void removeAll(Collection<String> ids) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        if (ids == null || ids.isEmpty()) {
+            throw new IllegalArgumentException("ids must not be null or empty");
+        }
+
+        String query = String.format("DELETE FROM \"%s\".\"%s\" WHERE %s IN (?)", schemaName, tableName, idColumn);
+
+        try (Connection conn = engine.getConnection()) {
+            try (PreparedStatement preparedStatement = conn.prepareStatement(query)) {
+                Array array = conn.createArrayOf("uuid", ids.stream().map(UUID::fromString).toArray());
+                preparedStatement.setArray(1, array);
+                preparedStatement.executeUpdate();
+            }
+        } catch (SQLException ex) {
+            log.error(String.format("Exception caught when inserting into vector store table: \"%s\".\"%s\"",
+                    schemaName, tableName), ex);
+            throw new RuntimeException(ex);
+        }
+
     }
 
     public static class Builder {
