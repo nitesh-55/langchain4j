@@ -1,0 +1,24 @@
+POSTGRES_USER=postgres
+POSTGRES_PASS=my-test-password
+POSTGRES_CONNECTION_NAME=senseai-framework-testing:us-central1:my-instance
+POSTGRES_DB=my-instance
+DATABASE_URL=jdbc:postgres://34.29.151.241:5432/my-instance
+REGION=us-central1
+
+export POSTGRES_USER=postgres
+export POSTGRES_PASS=my-test-password
+export POSTGRES_CONNECTION_NAME=senseai-framework-testing:us-central1:my-instance
+export REGION=us-central1
+export DATABASE_URL=jdbc:postgres://34.29.151.241:5432/my-instance
+export POSTGRES_DB=my-instance
+
+export ALLOYDB_IAM_EMAIL=<your-account-email>
+
+# export ALLOYDB_USER=postgres
+# export ALLOYDB_PASSWORD=alloydbtest
+# export ALLOYDB_PROJECT_ID=devshop-mosaic-11010494
+# export ALLOYDB_REGION=us-central1
+# export ALLOYDB_CLUSTER=senseai-alloydb-cluster
+# export ALLOYDB_INSTANCE=senseai-alloydb-cluster-primary
+# export ALLOYDB_DB_NAME=test
+# export ALLOYDB_IAM_EMAIL=<your-account-email>
