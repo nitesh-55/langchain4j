@@ -6,7 +6,16 @@ import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.engine.PostgresEngine;
 import dev.langchain4j.store.embedding.EmbeddingStore;
+import dev.langchain4j.store.embedding.index.DistanceStrategy;
+import java.sql.Array;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.*;
+import java.util.ArrayList;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class PostgresEmbeddingStore implements EmbeddingStore<TextSegment> {
 
@@ -116,6 +125,121 @@ public class PostgresEmbeddingStore implements EmbeddingStore<TextSegment> {
     // to be implemented
   }
 
+  @Override
+  public void removeAll(Collection<String> ids) {
+    if (ids == null || ids.isEmpty()) {
+      throw new IllegalArgumentException("ids must not be null or empty");
+    }
+
+    String query =
+        String.format("DELETE FROM \"%s\".\"%s\" WHERE %s IN (?)", schemaName, tableName, idColumn);
+
+    try (Connection conn = engine.getConnection()) {
+      try (PreparedStatement preparedStatement = conn.prepareStatement(query)) {
+        Array array = conn.createArrayOf("uuid", ids.stream().map(UUID::fromString).toArray());
+        preparedStatement.setArray(1, array);
+        preparedStatement.executeUpdate();
+      }
+    } catch (SQLException ex) {
+      log.error(
+          String.format(
+              "Exception caught when inserting into vector store table: \"%s\".\"%s\"",
+              schemaName, tableName),
+          ex);
+      throw new RuntimeException(ex);
+    }
+  }
+
+  // @Override
+  // public EmbeddingSearchResult<TextSegment> search(EmbeddingSearchRequest request) {
+  //   List<String> columns = new ArrayList(metadataColumns);
+  //   columns.add(idColumn);
+  //   columns.add(contentColumn);
+  //   columns.add(embeddingColumn);
+  //   if (isNotNullOrBlank(metadataJsonColumn)) {
+  //     columns.add(metadataJsonColumn);
+  //   }
+
+  //   String columnNames =
+  //       columns.stream().map(c -> String.format("\"%s\"", c)).collect(Collectors.joining(", "));
+
+  //   String filterString = FILTER_MAPPER.map(request.filter());
+
+  //   String whereClause =
+  //       isNotNullOrBlank(filterString) ? String.format("WHERE %s", filterString) : "";
+
+  //   String vector = String.format("'%s'", Arrays.toString(request.queryEmbedding().vector()));
+
+  //   String query =
+  //       String.format(
+  //           "SELECT %s, %s(%s, %s) as distance FROM \"%s\".\"%s\" %s ORDER BY %s %s %s LIMIT
+  // %d;",
+  //           columnNames,
+  //           distanceStrategy.getSearchFunction(),
+  //           embeddingColumn,
+  //           vector,
+  //           schemaName,
+  //           tableName,
+  //           whereClause,
+  //           embeddingColumn,
+  //           distanceStrategy.getOperator(),
+  //           vector,
+  //           request.maxResults());
+
+  //   List<EmbeddingMatch<TextSegment>> embeddingMatches = new ArrayList<>();
+
+  //   try (Connection conn = engine.getConnection()) {
+  //     try (Statement statement = conn.createStatement()) {
+  //       if (queryOptions != null) {
+  //         for (String option : queryOptions.getParameterSettings()) {
+  //           statement.executeQuery(String.format("SET LOCAL %s;", option));
+  //         }
+  //       }
+  //       ResultSet resultSet = statement.executeQuery(query);
+  //       while (resultSet.next()) {
+  //         double distance = resultSet.getDouble("distance");
+  //         String embeddingId = resultSet.getString(idColumn);
+
+  //         PGvector pgVector = (PGvector) resultSet.getObject(embeddingColumn);
+
+  //         Embedding embedding = Embedding.from(pgVector.toArray());
+
+  //         String embeddedText = resultSet.getString(contentColumn);
+  //         Map<String, Object> metadataMap = new HashMap<>();
+
+  //         for (String metaColumn : metadataColumns) {
+  //           metadataMap.put(metaColumn, resultSet.getObject(metaColumn));
+  //         }
+
+  //         if (isNotNullOrBlank(metadataJsonColumn)) {
+  //           String metadataJsonString = getOrDefault(resultSet.getString(metadataJsonColumn),
+  // "{}");
+  //           Map<String, Object> metadataJsonMap =
+  //               OBJECT_MAPPER.readValue(metadataJsonString, Map.class);
+  //           metadataMap.putAll(metadataJsonMap);
+  //         }
+
+  //         Metadata metadata = Metadata.from(metadataMap);
+
+  //         TextSegment embedded = new TextSegment(embeddedText, metadata);
+
+  //         embeddingMatches.add(new EmbeddingMatch<>(distance, embeddingId, embedding, embedded));
+  //       }
+  //     } catch (JsonProcessingException ex) {
+  //       throw new RuntimeException("Exception caught when processing JSON metadata", ex);
+  //     }
+  //   } catch (SQLException ex) {
+  //     throw new RuntimeException(
+  //         "Exception caught when searching in store table: \""
+  //             + schemaName
+  //             + "\".\""
+  //             + tableName
+  //             + "\"",
+  //         ex);
+  //   }
+  //   return new EmbeddingSearchResult<>(embeddingMatches);
+  // }
+
   public static class Builder {
 
     private PostgresEngine engine;
@@ -127,6 +251,7 @@ public class PostgresEmbeddingStore implements EmbeddingStore<TextSegment> {
     private List<String> metadataColumns;
     private String metadataJsonColumn;
     private List<String> ignoreMetadataColumns;
+    private DistanceStrategy distanceStrategy = DistanceStrategy.COSINE_DISTANCE;
     // change to QueryOptions class when implemented
     private List<String> queryOptions;
 
