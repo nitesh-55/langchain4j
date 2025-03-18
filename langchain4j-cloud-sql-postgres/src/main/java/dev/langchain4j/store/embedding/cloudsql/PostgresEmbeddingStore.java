@@ -67,26 +67,7 @@ public class PostgresEmbeddingStore implements EmbeddingStore<TextSegment> {
     /**
      * Constructor for PostgresEmbeddingStore
      *
-     * @param engine The connection object to use
-     * @param tableName The name of the table (no default, user must specify)
-     * @param schemaName (Optional, Default: "public") The schema name
-     * @param contentColumn (Optional, Default: “content”) Column that represent a Document’s page
-     *     content
-     * @param embeddingColumn (Optional, Default: “embedding”) Column for embedding vectors. The
-     *     embedding is generated from the document value
-     * @param idColumn (Optional, Default: "langchain_id") Column to store ids.
-     * @param metadataColumns (Optional) Column(s) that represent a document’s metadata
-     * @param metadataJsonColumn (Optional, Default: "langchain_metadata") The column to store extra
-     *     metadata in JSON format.
-     * @param ignoreMetadataColumnNames (Optional) Column(s) to ignore in pre-existing tables for a
-     *     document
-     * @param queryOptions (Optional) QueryOptions class with vector search parameters
-     * @param distanceStrategy (Defaults: COSINE_DISTANCE) Distance strategy to use for vector
-     *     similarity search * @param k (Defaults: 4) Number of Documents to return from search
-     * @param fetchK (Defaults: 20) Number of Documents to fetch to pass to MMR algorithm
-     * @param lambdaMult (Defaults: 0.5): Number between 0 and 1 that determines the degree of
-     *     diversity among the results with 0 corresponding to maximum diversity and 1 to minimum
-     *     diversity
+     * @param builder builder
      */
     public PostgresEmbeddingStore(Builder builder) {
         this.engine = builder.engine;
@@ -429,6 +410,7 @@ public class PostgresEmbeddingStore implements EmbeddingStore<TextSegment> {
         return new EmbeddingSearchResult<>(embeddingMatches);
     }
 
+    /** Builder which configures and creates instances of {@link PostgresEmbeddingStore}. */
     public static class Builder {
 
         private PostgresEngine engine;
@@ -446,13 +428,19 @@ public class PostgresEmbeddingStore implements EmbeddingStore<TextSegment> {
         private Double lambdaMult = 0.5;
         private QueryOptions queryOptions;
 
+        /**
+         * Constructor for Builder
+         *
+         * @param engine required {@link PostgresEngine}
+         * @param tableName table to be used as embedding store
+         */
         public Builder(PostgresEngine engine, String tableName) {
             this.engine = engine;
             this.tableName = tableName;
         }
 
         /**
-         * @param schemaName (Default: "public") The schema name
+         * @param schemaName (Default: "public") The schema name * @return this builder
          */
         public Builder schemaName(String schemaName) {
             this.schemaName = schemaName;
@@ -461,6 +449,7 @@ public class PostgresEmbeddingStore implements EmbeddingStore<TextSegment> {
 
         /**
          * @param contentColumn (Default: "content") create the content column with custom name
+         *     * @return this builder
          */
         public Builder contentColumn(String contentColumn) {
             this.contentColumn = contentColumn;
@@ -469,6 +458,7 @@ public class PostgresEmbeddingStore implements EmbeddingStore<TextSegment> {
 
         /**
          * @param embeddingColumn (Default: "embedding") create the embedding column with custom name
+         *     * @return this builder
          */
         public Builder embeddingColumn(String embeddingColumn) {
             this.embeddingColumn = embeddingColumn;
@@ -476,7 +466,8 @@ public class PostgresEmbeddingStore implements EmbeddingStore<TextSegment> {
         }
 
         /**
-         * @param idColumn (Optional, Default: "langchain_id") Column to store ids.
+         * @param idColumn (Optional, Default: "langchain_id") Column to store ids. * @return this
+         *     builder
          */
         public Builder idColumn(String idColumn) {
             this.idColumn = idColumn;
@@ -484,7 +475,8 @@ public class PostgresEmbeddingStore implements EmbeddingStore<TextSegment> {
         }
 
         /**
-         * @param metadataColumns list of SQLAlchemy Columns to create for custom metadata
+         * @param metadataColumns list of SQLAlchemy Columns to create for custom metadata * @return
+         *     this builder
          */
         public Builder metadataColumns(List<String> metadataColumns) {
             this.metadataColumns = metadataColumns;
@@ -493,7 +485,7 @@ public class PostgresEmbeddingStore implements EmbeddingStore<TextSegment> {
 
         /**
          * @param metadataJsonColumn (Default: "langchain_metadata") the column to store extra metadata
-         *     in
+         *     in * @return this builder
          */
         public Builder metadataJsonColumn(String metadataJsonColumn) {
             this.metadataJsonColumn = metadataJsonColumn;
@@ -502,7 +494,7 @@ public class PostgresEmbeddingStore implements EmbeddingStore<TextSegment> {
 
         /**
          * @param ignoreMetadataColumnNames (Optional) Column(s) to ignore in pre-existing tables for a
-         *     document’s
+         *     document’s * @return this builder
          */
         public Builder ignoreMetadataColumnNames(List<String> ignoreMetadataColumnNames) {
             this.ignoreMetadataColumnNames = ignoreMetadataColumnNames;
@@ -511,7 +503,7 @@ public class PostgresEmbeddingStore implements EmbeddingStore<TextSegment> {
 
         /**
          * @param distanceStrategy (Defaults: COSINE_DISTANCE) Distance strategy to use for vector
-         *     similarity search
+         *     similarity search * @return this builder
          */
         public Builder distanceStrategy(DistanceStrategy distanceStrategy) {
             this.distanceStrategy = distanceStrategy;
@@ -519,7 +511,7 @@ public class PostgresEmbeddingStore implements EmbeddingStore<TextSegment> {
         }
 
         /**
-         * @param k (Defaults: 4) Number of Documents to return from search
+         * @param k (Defaults: 4) Number of Documents to return from search * @return this builder
          */
         public Builder k(Integer k) {
             this.k = k;
@@ -527,7 +519,8 @@ public class PostgresEmbeddingStore implements EmbeddingStore<TextSegment> {
         }
 
         /**
-         * @param fetchK (Defaults: 20) Number of Documents to fetch to pass to MMR algorithm
+         * @param fetchK (Defaults: 20) Number of Documents to fetch to pass to MMR algorithm * @return
+         *     this builder
          */
         public Builder fetchK(Integer fetchK) {
             this.fetchK = fetchK;
@@ -535,7 +528,8 @@ public class PostgresEmbeddingStore implements EmbeddingStore<TextSegment> {
         }
 
         /**
-         * @param queryOptions (Optional) QueryOptions class with vector search parameters
+         * @param queryOptions (Optional) QueryOptions class with vector search parameters * @return
+         *     this builder
          */
         public Builder queryOptions(QueryOptions queryOptions) {
             this.queryOptions = queryOptions;
@@ -545,13 +539,19 @@ public class PostgresEmbeddingStore implements EmbeddingStore<TextSegment> {
         /**
          * @param lambdaMult (Defaults: 0.5): Number between 0 and 1 that determines the degree of
          *     diversity among the results with 0 corresponding to maximum diversity and 1 to minimum
-         *     diversity
+         *     diversity * @return this builder
          */
         public Builder lambdaMult(Double lambdaMult) {
             this.lambdaMult = lambdaMult;
             return this;
         }
 
+        /**
+         * Builds an {@link PostgresEmbeddingStore} store with the configuration applied to this
+         * builder.
+         *
+         * @return A new {@link PostgresEmbeddingStore} instance
+         */
         public PostgresEmbeddingStore build() {
             return new PostgresEmbeddingStore(this);
         }
